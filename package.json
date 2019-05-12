@@ -1,0 +1,18 @@
+{
+  "name": "pruebacertinseg",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "arraybuffer-to-string": "^1.0.2",
+    "asn1js": "^2.0.22",
+    "atob": "^2.1.2",
+    "node-webcrypto-ossl": "^1.0.44",
+    "pkijs": "^2.1.77"
+  }
+}
