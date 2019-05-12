@@ -12,6 +12,9 @@
     "arraybuffer-to-string": "^1.0.2",
     "asn1js": "^2.0.22",
     "atob": "^2.1.2",
+    "btoa": "^1.2.1",
+    "jsonwebtoken": "^8.5.1",
+    "jwk-to-pem": "^2.0.1",
     "node-webcrypto-ossl": "^1.0.44",
     "pkijs": "^2.1.77"
   }
