@@ -16,6 +16,9 @@
     "jsonwebtoken": "^8.5.1",
     "jwk-to-pem": "^2.0.1",
     "node-webcrypto-ossl": "^1.0.44",
-    "pkijs": "^2.1.77"
+    "pkijs": "^2.1.77",
+    "string-to-arraybuffer": "^1.0.2",
+    "text-encoder-lite": "^1.0.1",
+    "text-encoding": "^0.7.0"
   }
 }

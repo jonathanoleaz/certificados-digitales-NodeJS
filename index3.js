@@ -11,8 +11,16 @@ var jwkToPem = require('jwk-to-pem')
 
 const webcrypto = new WebCrypto();
 
-const Certificate = pkijs.Certificate
-const CryptoEngine = pkijs.CryptoEngine
+const {
+    Certificate,
+    CryptoEngine,
+    setEngine,
+    getCrypto,
+    AttributeTypeAndValue,
+    BasicConstraints,
+    Extension,
+    getAlgorithmParameters
+} = pkijs;
 
 let certificateBuffer = new ArrayBuffer(0);
 
@@ -37,56 +45,93 @@ const llavePrivadaCA_jwk = {
 }
 
 async function init() {
-	let pemFile = fs.readFileSync('C:/Users/jonat/OneDrive/Documentos/TT/tt_recetasmedicasfirmadigital/backend/api_sam/lib/pki/utils/certkey/certCA1.crt', 'utf8');
-	certificateBuffer = convertPemToBinary(pemFile);
-	//console.log(certificateBuffer);
-	//printCertificate(certificateBuffer);
 
-	pemFile = fs.readFileSync('C:/Users/jonat/OneDrive/Documentos/TT/tt_recetasmedicasfirmadigital/backend/api_sam/lib/pki/utils/certkey/certCA1.crt', 'utf8');
-	certificateBuffer = convertPemToBinary(pemFile);
-	const asn1 = asn1js.fromBER(certificateBuffer);
-	const certificate = new Certificate({ schema: asn1.result });
-
-	//console.log(certificate)
-	console.log("xx: ", await certificate.verify())
+    const crypto = getCrypto();
+    if (typeof crypto === 'undefined') {
+        return Promise.reject('No WebCrypto extension found');
+    }
 	
-
-
 
 	const algorithm = pkijs.getAlgorithmParameters(signAlg, 'generatekey');
 	//console.log("algoritmo:"+JSON.stringify(algorithm))
 
 	
 	let keyPair = await pkijs.getCrypto().generateKey(algorithm.algorithm, true, algorithm.usages);
-	/*console.log(keyPair)
-	let pkcs8 = await pkijs.getCrypto().exportKey("jwk", keyPair.privateKey)
-	let finalPkcs8 = convertBinaryToPem(pkcs8, "PRIVATE KEY")
-	console.log("pkcs8 privada:", (pkcs8))
-
-
-	let pkcs82 = await pkijs.getCrypto().exportKey("jwk", keyPair.publicKey)
-	let finalPkcs82 = convertBinaryToPem(pkcs82, "PUBLIC KEY")
-	console.log("pkcs8 publica:", (pkcs82));
-*/
+	
 
 	let privateKey=await pkijs.getCrypto().importKey("jwk", llavePrivadaCA_jwk, algorithm.algorithm, true, algorithm.usages)
 	let publicKey=await pkijs.getCrypto().importKey("jwk", llavePublicaCA_jwk, algorithm.algorithm, true, algorithm.usages)
 
 	console.log("Private final: ",privateKey)
 	console.log("Public final: ",publicKey)
-	try {
-		pemFile = fs.readFileSync('C:/Users/jonat/OneDrive/Escritorio/myKey.pem', 'utf8');
-		let binaryKey = convertPemToBinary(pemFile);
+    
+    const certificate = new Certificate();
 
-		let asn1 = asn1js.fromBER(binaryKey);
-		//console.log("file:", pemFile)
+    certificate.version = 2;
+    certificate.serialNumber = new asn1js.Integer({ value: 1 });
+    certificate.issuer.typesAndValues.push(new AttributeTypeAndValue({
+        type: '2.5.4.6', // Country name
+        value: new asn1js.PrintableString({ value: 'RU' })
+    }));
+    certificate.issuer.typesAndValues.push(new AttributeTypeAndValue({
+        type: '2.5.4.3', // Common name
+        value: new asn1js.BmpString({ value: 'Test' })
+    }));
+    certificate.subject.typesAndValues.push(new AttributeTypeAndValue({
+        type: '2.5.4.6', // Country name
+        value: new asn1js.PrintableString({ value: 'RU' })
+    }));
+    certificate.subject.typesAndValues.push(new AttributeTypeAndValue({
+        type: '2.5.4.3', // Common name
+        value: new asn1js.BmpString({ value: 'Test' })
+    }));
 
-		let keyPair2 = await pkijs.getCrypto().importKey("pkcs8", convertPemToBinary(pemFile), algorithm.algorithm, true, algorithm.usages)
-		//console.log("Llave privada: ",keyPair2)
+    certificate.notBefore.value = new Date(2016, 1, 1);
+    certificate.notAfter.value = new Date(2019, 1, 1);
 
-	} catch (error) {
-		throw new Error(`Error during key generation: ${error}`);
-	}
+    // Extensions are not a part of certificate by default, it's an optional array
+    certificate.extensions = [];
+
+    const basicConstr = new BasicConstraints({
+        cA: true,
+        pathLenConstraint: 3
+    });
+
+    certificate.extensions.push(new Extension({
+        extnID: '2.5.29.19',
+        critical: true,
+        extnValue: basicConstr.toSchema().toBER(false),
+        parsedValue: basicConstr // Parsed value for well-known extensions
+    }));
+
+    const bitArray = new ArrayBuffer(1);
+    const bitView = new Uint8Array(bitArray);
+
+    // tslint:disable-next-line:no-bitwise
+    bitView[0] = bitView[0] | 0x02; // Key usage "cRLSign" flag
+    // tslint:disable-next-line:no-bitwise
+    bitView[0] = bitView[0] | 0x04; // Key usage "keyCertSign" flag
+
+    const keyUsage = new asn1js.BitString({ valueHex: bitArray });
+
+    certificate.extensions.push(new Extension({
+        extnID: '2.5.29.15',
+        critical: false,
+        extnValue: keyUsage.toBER(false),
+        parsedValue: keyUsage // Parsed value for well-known extensions
+    }));
+
+
+    try {
+        // signing final certificate
+        await certificate.sign(privateKey, hashAlg);
+        console.log(certificate)
+
+        console.log('SEPT:',await certificate.verify());
+
+    } catch (error) {
+        throw new Error(`Error during signing: ${error}`);
+    }
 }
 
 function convertPemToBinary(pem) {
